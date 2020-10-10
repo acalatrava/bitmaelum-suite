@@ -5,52 +5,25 @@ import (
 	"strings"
 
 	"github.com/tyler-smith/go-bip39"
+	"github.com/c-bata/go-prompt"
 )
 
 // AutoComplete Listener
 type acl struct{}
 
-func (l *acl) OnChange(line []rune, pos int, key rune) (newLine []rune, newPos int, ok bool) {
-	// Empty string will return empty
-	s := string(line)[:pos]
-	if s == "" {
-		return
-	}
-
-	// Find word with the current prefix
-	var f *string
+func completer(d prompt.Document) []prompt.Suggest {
+	s := []prompt.Suggest{}
 	for _, w := range bip39.GetWordList() {
-		if strings.HasPrefix(w, s) {
-			f = &w
-			break
-		}
+		t := prompt.Suggest{Text: w}
+		s = append(s, t)
 	}
 
-	// Can't find the word, redo the word
-	if f == nil {
-		return line[:pos-1], pos - 1, true
-	}
-
-	return []rune(*f), pos, true
+	return prompt.FilterHasPrefix(s, d.GetWordBeforeCursor(), true)
 }
 
 // AskMnemonicPhrase asks for the mnemonic phrase, which is autocompleted.
 func AskMnemonicPhrase() string {
-	fmt.Print("Please enter your mnemonic words and press enter after each word. End with an empty line.")
+	fmt.Println("Please enter your mnemonic words and press enter after each word. End with an empty line.")
 
-	var s = ""
-	for {
-		line, err := readliner.Readline()
-		if err != nil {
-			return ""
-		}
-
-		if line == "" {
-			break
-		}
-
-		s += line + " "
-	}
-
-	return strings.TrimSpace(s)
+	return prompt.Input("> ", completer)
 }
