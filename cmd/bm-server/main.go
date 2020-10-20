@@ -198,6 +198,12 @@ func setupRouter() *mux.Router {
 	authRouter.HandleFunc("/account/{addr:[A-Za-z0-9]{64}}/apikey", handler.ListAPIKeys).Methods("GET")
 	authRouter.HandleFunc("/account/{addr:[A-Za-z0-9]{64}}/apikey/{key}", handler.GetAPIKeyDetails).Methods("GET")
 	authRouter.HandleFunc("/account/{addr:[A-Za-z0-9]{64}}/apikey/{key}", handler.DeleteAPIKey).Methods("DELETE")
+	// User Store
+	authRouter.HandleFunc("/store/{addr:[A-Za-z0-9]{64}}", handler.RetrieveStore).Methods("GET")
+	authRouter.HandleFunc("/store/{addr:[A-Za-z0-9]{64}}", handler.RemoveStore).Methods("DELETE")
+	authRouter.HandleFunc("/store/{addr:[A-Za-z0-9]{64}}/{key:[A-Za-z0-9]{64}}", handler.RetrieveStore).Methods("GET")
+	authRouter.HandleFunc("/store/{addr:[A-Za-z0-9]{64}}/{key:[A-Za-z0-9]{64}}", handler.UpdateStore).Methods("PUT")
+	authRouter.HandleFunc("/store/{addr:[A-Za-z0-9]{64}}/{key:[A-Za-z0-9]{64}}", handler.RemoveStore).Methods("DELETE")
 
 	// Add management endpoints if enabled
 	if config.Server.Management.Enabled {
