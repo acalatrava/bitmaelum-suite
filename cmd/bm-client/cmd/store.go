@@ -83,10 +83,10 @@ var (
 func init() {
 	rootCmd.AddCommand(storeCmd)
 
-	storeAccount = storeCmd.Flags().String("account", "a", "Arbitrary data to be stored")
-	storeData = storeCmd.Flags().String("data", "d", "Arbitrary data to be stored")
-	storeKey = storeCmd.Flags().String("key", "k", "Key ID of the data")
-	storeParent = storeCmd.Flags().String("parent", "p", "Parent key ID where this data belongs to")
+	storeAccount = storeCmd.Flags().StringP("account", "a", "", "Arbitrary data to be stored")
+	storeData = storeCmd.Flags().StringP("data", "d", "", "Arbitrary data to be stored")
+	storeKey = storeCmd.Flags().StringP("key", "k", "", "Key ID of the data")
+	storeParent = storeCmd.Flags().StringP("parent", "p", "", "Parent key ID where this data belongs to")
 	storePut = storeCmd.Flags().BoolP("upload", "u", false, "Store the data to the server")
 	storeGet = storeCmd.Flags().BoolP("get", "g", false, "Retrieve the data from the server")
 	storeDel = storeCmd.Flags().BoolP("remove", "r", false, "Remove the key from the server")
