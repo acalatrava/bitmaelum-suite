@@ -178,7 +178,6 @@ func deleteCollection(repo userstore.Repository, addr *hash.Hash, entry *usersto
 			repo.Remove(*addr, k)
 		}
 	}
-	return
 }
 
 // RemoveStore will remove a key or collection
