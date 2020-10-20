@@ -86,7 +86,7 @@ func RetrieveStore(w http.ResponseWriter, req *http.Request) {
 
 	k := mux.Vars(req)["key"]
 
-	logrus.Trace("RetrieveStore called for addr", h, "and key", k)
+	logrus.Trace("RetrieveStore called for addr ", h, " and key ", k)
 
 	if k == "" {
 		logrus.Trace("Trying to dump keys")
@@ -114,7 +114,7 @@ func RetrieveStore(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if entry.IsCollection {
-		logrus.Trace("Trying to dump keys for key", k)
+		logrus.Trace("Trying to dump keys for key ", k)
 		entries, err := dumpStore(*h, k)
 		if err != nil {
 			msg := fmt.Sprintf("error while retrieving store: %s", err)
@@ -130,13 +130,12 @@ func RetrieveStore(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	logrus.Trace("Entry retrieved", entry.Data)
+	logrus.Trace("Entry retrieved ", entry.Data)
 
 	// Output entry
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(entry)
-
 }
 
 // UpdateStore will update a key or collection
