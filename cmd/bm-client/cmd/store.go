@@ -36,7 +36,7 @@ var storeCmd = &cobra.Command{
 	Long:    `It will allow to retrieve, store and delete encrypted arbitrary data to the server`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if !*storePut && !*storeGet && !*storeDel {
-			logrus.Fatalf("please specify at least one action (store, retrieve, delete)")
+			logrus.Fatalf("please specify at least one action (upload, get, remove)")
 			os.Exit(1)
 		}
 
