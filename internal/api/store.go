@@ -21,9 +21,9 @@ package api
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 
+	"github.com/Jeffail/gabs/v2"
 	"github.com/bitmaelum/bitmaelum-suite/pkg/hash"
 )
 
@@ -76,10 +76,16 @@ func (api *API) DeleteKeyFromStore(addr hash.Hash, k string) error {
 }
 
 // GetKeyFromStore gets a key data from the store
-func (api *API) GetKeyFromStore(addr hash.Hash, k string) (json.RawMessage, error) {
-	var entries json.RawMessage
+func (api *API) GetKeyFromStore(addr hash.Hash, k string) (interface{}, error) {
+	//var entries interface{}
 
-	resp, statusCode, err := api.GetJSON(fmt.Sprintf("/store/%s/%s", addr.String(), hash.New(k).String()), entries)
+	//resp, statusCode, err := api.GetJSON(fmt.Sprintf("/store/%s/%s", addr.String(), hash.New(k).String()), entries)
+	resp, statusCode, err := api.Get(fmt.Sprintf("/store/%s/%s", addr.String(), hash.New(k).String()))
+	if err != nil {
+		return nil, err
+	}
+
+	jsonParsed, err := gabs.ParseJSON(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -88,5 +94,5 @@ func (api *API) GetKeyFromStore(addr hash.Hash, k string) (json.RawMessage, erro
 		return nil, getErrorFromResponse(resp)
 	}
 
-	return entries, nil
+	return jsonParsed, nil
 }
