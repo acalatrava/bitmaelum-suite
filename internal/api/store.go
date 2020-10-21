@@ -49,7 +49,7 @@ func (api *API) PutDataInStore(addr hash.Hash, k string, v string, p string) err
 		IsCollection: isCollection,
 	}
 
-	resp, statusCode, err := api.PutJSON(fmt.Sprintf("/store/%s/%s", addr.String(), hash.New(k).String()), input)
+	resp, statusCode, err := api.PutJSON(getURL(addr, k), input)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,8 @@ func (api *API) PutDataInStore(addr hash.Hash, k string, v string, p string) err
 
 // DeleteKeyFromStore delete a key from the store
 func (api *API) DeleteKeyFromStore(addr hash.Hash, k string) error {
-	resp, statusCode, err := api.Delete(fmt.Sprintf("/store/%s/%s", addr.String(), hash.New(k).String()))
+
+	resp, statusCode, err := api.Delete(getURL(addr, k))
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func (api *API) GetKeyFromStore(addr hash.Hash, k string) (interface{}, error) {
 	//var entries interface{}
 
 	//resp, statusCode, err := api.GetJSON(fmt.Sprintf("/store/%s/%s", addr.String(), hash.New(k).String()), entries)
-	resp, statusCode, err := api.Get(fmt.Sprintf("/store/%s/%s", addr.String(), hash.New(k).String()))
+	resp, statusCode, err := api.Get(getURL(addr, k))
 	if err != nil {
 		return nil, err
 	}
@@ -95,4 +96,16 @@ func (api *API) GetKeyFromStore(addr hash.Hash, k string) (interface{}, error) {
 	}
 
 	return jsonParsed, nil
+}
+
+func getURL(addr hash.Hash, k string) string {
+	var url string
+
+	if k == "" {
+		url = fmt.Sprintf("/store/%s", addr.String())
+	} else {
+		url = fmt.Sprintf("/store/%s/%s", addr.String(), hash.New(k).String())
+	}
+
+	return url
 }
