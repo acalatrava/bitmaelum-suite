@@ -40,6 +40,11 @@ var storeCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		if *storePut {
+			logrus.Fatalf("please specify key")
+			os.Exit(1)
+		}
+
 		v := vault.OpenVault()
 
 		accountToUse := vault.GetAccountOrDefault(v, *storeAccount)
@@ -83,7 +88,7 @@ var (
 func init() {
 	rootCmd.AddCommand(storeCmd)
 
-	storeAccount = storeCmd.Flags().StringP("account", "a", "", "Arbitrary data to be stored")
+	storeAccount = storeCmd.Flags().StringP("account", "a", "", "Account to use")
 	storeData = storeCmd.Flags().StringP("data", "d", "", "Arbitrary data to be stored")
 	storeKey = storeCmd.Flags().StringP("key", "k", "", "Key ID of the data")
 	storeParent = storeCmd.Flags().String("parent", "", "Parent key ID where this data belongs to")
@@ -91,5 +96,5 @@ func init() {
 	storeGet = storeCmd.Flags().BoolP("get", "g", false, "Retrieve the data from the server")
 	storeDel = storeCmd.Flags().BoolP("remove", "r", false, "Remove the key from the server")
 
-	_ = storeCmd.MarkFlagRequired("key")
+	//_ = storeCmd.MarkFlagRequired("key")
 }
