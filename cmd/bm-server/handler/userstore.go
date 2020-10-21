@@ -38,6 +38,12 @@ const (
 	keyIsMissing string = "key is missing"
 )
 
+type node struct {
+	ID       string               `json:"id"`
+	Value    userstore.StoreEntry `json:"value"`
+	Children []node               `json:"children,omitempty"`
+}
+
 type parentToEntrySliceMap map[string][]userstore.StoreEntry
 type parentToIndexItemMap map[string]map[int]userstore.StoreEntry
 
@@ -47,33 +53,57 @@ type inputStoreEntry struct {
 	IsCollection bool   `json:"iscollection"`
 }
 
-func dumpStore(addr hash.Hash, key string) (parentToIndexItemMap, error) {
+func addToTree(root []node, entries []userstore.StoreEntry) []node {
+	if len(entries) > 0 {
+		var i int
+		for i = 0; i < len(root); i++ {
+			if root[i].ID == entries[0].ID { //already in tree
+				break
+			}
+		}
+		if i == len(root) {
+			root = append(root, node{ID: entries[0].ID})
+		}
+		root[i].Children = addToTree(root[i].Children, entries[1:])
+	}
+	return root
+}
+
+func dumpStore(addr hash.Hash, key string) ([]node, error) {
+	var tree []node
+
 	repo := container.GetUserStoreRepo()
 	entries, err := repo.Dump(addr)
 	if err != nil {
-		return nil, err
+		return tree, err
 	}
 
-	// collect items according to parent
-	parToItemSlice := parentToEntrySliceMap{}
-	for _, v := range *entries {
-		if v.Parent == key || key == "" {
-			parToItemSlice[v.Parent] = append(parToItemSlice[v.Parent], v)
-		}
-	}
+	tree = addToTree(tree, *entries)
 
-	//turn those slices into int -> Item maps for decoding
-	parToIndexItemMap := parentToIndexItemMap{}
-	for k, v := range parToItemSlice {
-		if parToIndexItemMap[k] == nil {
-			parToIndexItemMap[k] = map[int]userstore.StoreEntry{}
+	/*
+		// collect items according to parent
+		parToItemSlice := parentToEntrySliceMap{}
+		for _, v := range *entries {
+			if v.Parent == key || key == "" {
+				parToItemSlice[v.Parent] = append(parToItemSlice[v.Parent], v)
+			}
 		}
-		for index, item := range v {
-			parToIndexItemMap[k][index] = item
-		}
-	}
 
-	return parToIndexItemMap, nil
+		//turn those slices into int -> Item maps for decoding
+		parToIndexItemMap := parentToIndexItemMap{}
+		for k, v := range parToItemSlice {
+			if parToIndexItemMap[k] == nil {
+				parToIndexItemMap[k] = map[int]userstore.StoreEntry{}
+			}
+			for index, item := range v {
+				parToIndexItemMap[k][index] = item
+			}
+		}
+
+		return parToIndexItemMap, nil
+	*/
+
+	return tree, nil
 }
 
 // RetrieveStore will retrieve a key or collection

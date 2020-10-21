@@ -40,7 +40,7 @@ var storeCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if *storePut {
+		if *storePut && *storeKey == "" {
 			logrus.Fatalf("please specify key")
 			os.Exit(1)
 		}
