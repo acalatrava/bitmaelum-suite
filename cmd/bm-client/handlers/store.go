@@ -65,7 +65,7 @@ func StoreGet(info *internal.AccountInfo, routingInfo *resolver.RoutingInfo, k *
 	addr, _ := address.NewAddress(info.Address)
 	addrHash := addr.Hash()
 
-	j, err := client.GetKeyFromStore(addrHash, *k, dump)
+	j, err := client.GetKeyFromStore(addrHash, *k, *dump)
 
 	if err != nil {
 		logrus.Fatal(err)

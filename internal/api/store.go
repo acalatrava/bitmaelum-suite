@@ -85,7 +85,7 @@ func (api *API) GetKeyFromStore(addr hash.Hash, k string, dump bool) (interface{
 	if dump {
 		url = url + "?dump=true"
 	}
-	resp, statusCode, err := api.Get(getURL(addr, k))
+	resp, statusCode, err := api.Get(url)
 	if err != nil {
 		return nil, err
 	}
