@@ -77,6 +77,15 @@ func getEntries(tx *bolt.Tx, c *bolt.Cursor) []StoreEntry {
 
 // Dump the whole store
 func (b boltRepo) Dump(addr hash.Hash) (*[]StoreEntry, error) {
+	return dump(b, false, addr)
+}
+
+// Dump the whole store
+func (b boltRepo) DumpIndex(addr hash.Hash) (*[]StoreEntry, error) {
+	return dump(b, true, addr)
+}
+
+func dump(b boltRepo, onlyIndex bool, addr hash.Hash) (*[]StoreEntry, error) {
 	var entries []StoreEntry
 
 	err := b.client.View(func(tx *bolt.Tx) error {
@@ -89,6 +98,11 @@ func (b boltRepo) Dump(addr hash.Hash) (*[]StoreEntry, error) {
 		c := userBucket.Cursor()
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			entry := StoreEntry{}
+			if onlyIndex {
+				if !entry.IsCollection {
+					continue
+				}
+			}
 			json.Unmarshal(v, &entry)
 			entries = append(entries, entry)
 		}
@@ -119,6 +133,9 @@ func (b boltRepo) Fetch(addr hash.Hash, key string) (*StoreEntry, error) {
 			v := mainBucket.Get([]byte(key))
 		*/
 		v := userBucket.Get([]byte(key))
+		if v == nil {
+			return errors.New(keyNotFound)
+		}
 
 		err := json.Unmarshal(v, &entry)
 		return err

@@ -77,10 +77,14 @@ func (api *API) DeleteKeyFromStore(addr hash.Hash, k string) error {
 }
 
 // GetKeyFromStore gets a key data from the store
-func (api *API) GetKeyFromStore(addr hash.Hash, k string) (interface{}, error) {
+func (api *API) GetKeyFromStore(addr hash.Hash, k string, dump bool) (interface{}, error) {
 	//var entries interface{}
 
 	//resp, statusCode, err := api.GetJSON(fmt.Sprintf("/store/%s/%s", addr.String(), hash.New(k).String()), entries)
+	url := getURL(addr, k)
+	if dump {
+		url = url + "?dump=true"
+	}
 	resp, statusCode, err := api.Get(getURL(addr, k))
 	if err != nil {
 		return nil, err

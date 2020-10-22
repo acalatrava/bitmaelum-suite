@@ -45,6 +45,16 @@ var storeCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		if *storeGet && *storeData != "" {
+			logrus.Fatalf("data and get cannot be used together")
+			os.Exit(1)
+		}
+
+		if *storeGet && *storeParent != "" {
+			logrus.Fatalf("parent and get cannot be used together")
+			os.Exit(1)
+		}
+
 		v := vault.OpenVault()
 
 		accountToUse := vault.GetAccountOrDefault(v, *storeAccount)
@@ -70,7 +80,7 @@ var storeCmd = &cobra.Command{
 		}
 
 		if *storeGet {
-			handlers.StoreGet(accountToUse, routingInfo, storeKey)
+			handlers.StoreGet(accountToUse, routingInfo, storeKey, storeDump)
 		}
 	},
 }
@@ -83,6 +93,7 @@ var (
 	storePut     *bool
 	storeGet     *bool
 	storeDel     *bool
+	storeDump    *bool
 )
 
 func init() {
@@ -93,8 +104,9 @@ func init() {
 	storeKey = storeCmd.Flags().StringP("key", "k", "", "Key ID of the data")
 	storeParent = storeCmd.Flags().String("parent", "", "Parent key ID where this data belongs to")
 	storePut = storeCmd.Flags().BoolP("upload", "u", false, "Store the data to the server")
-	storeGet = storeCmd.Flags().BoolP("get", "g", false, "Retrieve the data from the server")
+	storeGet = storeCmd.Flags().BoolP("get", "g", false, "Retrieve the key from the server or, if requested a collection, the underlaying structure")
 	storeDel = storeCmd.Flags().BoolP("remove", "r", false, "Remove the key from the server")
+	storeDump = storeCmd.Flags().BoolP("dump", "", false, "Dump the whole structure and return all the values")
 
 	//_ = storeCmd.MarkFlagRequired("key")
 }
