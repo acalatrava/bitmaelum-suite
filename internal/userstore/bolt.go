@@ -98,12 +98,12 @@ func dump(b boltRepo, onlyIndex bool, addr hash.Hash) (*[]StoreEntry, error) {
 		c := userBucket.Cursor()
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			entry := StoreEntry{}
+			json.Unmarshal(v, &entry)
 			if onlyIndex {
 				if !entry.IsCollection {
 					continue
 				}
 			}
-			json.Unmarshal(v, &entry)
 			entries = append(entries, entry)
 		}
 
