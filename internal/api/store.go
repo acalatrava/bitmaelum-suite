@@ -77,7 +77,6 @@ func (api *API) DeleteKeyFromStore(addr hash.Hash, k string) error {
 }
 
 // GetKeyFromStore gets a key data from the store
-<<<<<<< HEAD
 func (api *API) GetKeyFromStore(addr hash.Hash, k string, dump bool) (interface{}, error) {
 	//var entries interface{}
 
@@ -86,12 +85,6 @@ func (api *API) GetKeyFromStore(addr hash.Hash, k string, dump bool) (interface{
 	if dump {
 		url = url + "?dump=true"
 	}
-=======
-func (api *API) GetKeyFromStore(addr hash.Hash, k string) (interface{}, error) {
-	//var entries interface{}
-
-	//resp, statusCode, err := api.GetJSON(fmt.Sprintf("/store/%s/%s", addr.String(), hash.New(k).String()), entries)
->>>>>>> 1dabfdaedb07d8a914764c8aaa233b3123d7540f
 	resp, statusCode, err := api.Get(getURL(addr, k))
 	if err != nil {
 		return nil, err
