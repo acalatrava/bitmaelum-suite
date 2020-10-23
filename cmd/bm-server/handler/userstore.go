@@ -319,5 +319,11 @@ func dumpStore(onlyIndex bool, addr hash.Hash, key string) (interface{}, error) 
 			}
 		}
 	*/
-	return m[""], nil
+
+	if m[key] == nil {
+		// Nothing to be returned
+		return m, nil
+	}
+
+	return m[key], nil
 }
