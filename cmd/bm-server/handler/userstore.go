@@ -40,18 +40,6 @@ const (
 	keyIsMissing string = "key is missing"
 )
 
-type node struct {
-	ID       string `json:"id"`
-	Value    []byte `json:"data,omitempty"`
-	Children *node  `json:"children,omitempty"`
-	ParentID string `json:"parent"`
-}
-
-/*
-type parentToEntrySliceMap map[string][]userstore.StoreEntry
-type parentToIndexItemMap map[string]map[int]userstore.StoreEntry
-*/
-
 type inputStoreEntry struct {
 	Data         string `json:"data"`
 	Parent       string `json:"parent"`
@@ -74,54 +62,68 @@ func RetrieveStore(w http.ResponseWriter, req *http.Request) {
 
 	logrus.Trace("RetrieveStore called for addr ", h, " and key ", k)
 
-	if k == "" {
-		logrus.Trace("Trying to dump keys")
-		entries, err := dumpStore(onlyIndex, h, k)
-		if err != nil {
-			msg := fmt.Sprintf("error while retrieving store: %s", err)
-			ErrorOut(w, http.StatusInternalServerError, msg)
-			return
-		}
-
-		// Output entries
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(entries)
-
-		return
-	}
-
-	repo := container.GetUserStoreRepo()
-	entry, err := repo.Fetch(h, k)
+	entries, err := dumpStore(onlyIndex, h, k)
 	if err != nil {
-		msg := fmt.Sprintf("error while fetching key: %s", err)
+		msg := fmt.Sprintf("error while retrieving store: %s", err)
 		ErrorOut(w, http.StatusInternalServerError, msg)
 		return
 	}
 
-	if entry.IsCollection {
-		logrus.Trace("Trying to dump keys for key ", k)
-		entries, err := dumpStore(onlyIndex, h, k)
+	// Output entries
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(entries)
+
+	/*
+		if k == "" {
+			logrus.Trace("Trying to dump keys")
+			entries, err := dumpStore(onlyIndex, h, k)
+			if err != nil {
+				msg := fmt.Sprintf("error while retrieving store: %s", err)
+				ErrorOut(w, http.StatusInternalServerError, msg)
+				return
+			}
+
+			// Output entries
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(entries)
+
+			return
+		}
+
+		repo := container.GetUserStoreRepo()
+		entry, err := repo.Fetch(h, k)
 		if err != nil {
-			msg := fmt.Sprintf("error while retrieving store: %s", err)
+			msg := fmt.Sprintf("error while fetching key: %s", err)
 			ErrorOut(w, http.StatusInternalServerError, msg)
 			return
 		}
 
-		// Output entries
+		if entry.IsCollection {
+			logrus.Trace("Trying to dump keys for key ", k)
+			entries, err := dumpStore(onlyIndex, h, k)
+			if err != nil {
+				msg := fmt.Sprintf("error while retrieving store: %s", err)
+				ErrorOut(w, http.StatusInternalServerError, msg)
+				return
+			}
+
+			// Output entries
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(entries)
+
+			return
+		}
+
+		logrus.Trace("Entry retrieved ", entry.Data)
+
+		// Output entry
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(entries)
-
-		return
-	}
-
-	logrus.Trace("Entry retrieved ", entry.Data)
-
-	// Output entry
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(entry)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(entry)
+	*/
 }
 
 // UpdateStore will update a key or collection
@@ -186,7 +188,7 @@ func RemoveStore(w http.ResponseWriter, req *http.Request) {
 	repo := container.GetUserStoreRepo()
 	if k == "" {
 		// Delete the whole store
-		entries, err := repo.Dump(h)
+		entries, err := repo.Dump(h, k)
 		if err != nil {
 			ErrorOut(w, http.StatusNotFound, accountNotFound)
 			return
@@ -254,10 +256,12 @@ func deleteCollection(repo userstore.Repository, addr *hash.Hash, entry *usersto
 	repo.Remove(*addr, entry.ID)
 }
 
-func dumpStore(onlyIndex bool, addr hash.Hash, key string) ([]node, error) {
-	tree := []node{}
-	tree2 := []node{}
+type mNode struct {
+	Value    []byte            `json:"data,omitempty"`
+	Children map[string]*mNode `json:"children,omitempty"`
+}
 
+func dumpStore(onlyIndex bool, addr hash.Hash, key string) (interface{}, error) {
 	repo := container.GetUserStoreRepo()
 
 	var (
@@ -266,65 +270,54 @@ func dumpStore(onlyIndex bool, addr hash.Hash, key string) ([]node, error) {
 	)
 
 	if onlyIndex {
-		entries, err = repo.DumpIndex(addr)
+		entries, err = repo.DumpIndex(addr, key)
 	} else {
-		entries, err = repo.Dump(addr)
+		entries, err = repo.Dump(addr, key)
 	}
 
 	if err != nil {
-		return tree, err
+		return nil, err
 	}
 
-	a, _ := json.Marshal(entries)
-	err = json.Unmarshal(a, &tree)
-	if err != nil {
-		return tree, err
-	}
+	m := make(map[string]interface{})
+	for _, entry := range *entries {
+		logrus.Trace("entry -> ", entry.Parent, " ", entry.ID)
 
-	m := make(map[string]*node)
-	for i, entry := range *entries {
-		//fmt.Printf("Setting m[%d] = <node with ID=%d>\n", n.ID, n.ID)
-		m[entry.ID] = &tree[i]
-	}
-
-	for i, n := range tree {
-		//fmt.Printf("Setting <node with ID=%d>.Child to <node with ID=%d>\n", n.ID, m[n.ParentID].ID)
-		if m[n.ParentID] != nil {
-			m[n.ParentID].Children = &tree[i]
+		if m[entry.Parent] == nil {
+			m[entry.Parent] = make(map[string]interface{})
 		}
-	}
 
-	for _, n := range tree {
-		if (n.ParentID == key && key != "") || key == "" {
-			tree2 = append(tree2, n)
+		if m[entry.ID] == nil {
+			if entry.IsCollection {
+				m[entry.ID] = make(map[string]interface{})
+			} else {
+				m[entry.ID] = entry.Data
+			}
 		}
+
+		m[entry.Parent].(map[string]interface{})[entry.ID] = m[entry.ID]
 	}
 
 	/*
-		tree = addToTree(tree, *entries)
-	*/
-	/*
-		// collect items according to parent
-		parToItemSlice := parentToEntrySliceMap{}
-		for _, v := range *entries {
-			if v.Parent == key || key == "" {
-				parToItemSlice[v.Parent] = append(parToItemSlice[v.Parent], v)
+		for _, entry := range *entries {
+			if entry.IsCollection {
+				node := make(map[string]interface{})
+				m[entry.ID] = node
+			} else {
+				m[entry.ID] = entry.Data
 			}
 		}
 
-		//turn those slices into int -> Item maps for decoding
-		parToIndexItemMap := parentToIndexItemMap{}
-		for k, v := range parToItemSlice {
-			if parToIndexItemMap[k] == nil {
-				parToIndexItemMap[k] = map[int]userstore.StoreEntry{}
-			}
-			for index, item := range v {
-				parToIndexItemMap[k][index] = item
+		for _, entry := range *entries {
+			logrus.Trace("checking entry  ", entry.ID, " parent ", entry.Parent)
+			if entry.Parent == "" {
+				logrus.Trace("entry -> root ", entry.ID)
+				m["root"].(map[string]interface{})[entry.ID] = m[entry.ID]
+			} else {
+				logrus.Trace("entry -> ", entry.Parent, " ", entry.ID)
+				m[entry.Parent].(map[string]interface{})[entry.ID] = m[entry.ID]
 			}
 		}
-
-		return parToIndexItemMap, nil
 	*/
-
-	return tree2, nil
+	return m[""], nil
 }

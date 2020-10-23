@@ -8,6 +8,7 @@ require (
 	github.com/cloudflare/gokey v0.1.0
 	github.com/coreos/go-semver v0.3.0
 	github.com/davecgh/go-spew v1.1.1
+	github.com/emirpasic/gods v1.12.0
 	github.com/ernesto-jimenez/httplogger v0.0.0-20150224132909-86cc44f6150a
 	github.com/fzipp/gocyclo v0.3.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.1.1

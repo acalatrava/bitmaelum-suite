@@ -35,6 +35,7 @@ type boltRepo struct {
 
 const (
 	keyNotFound       string = "key not found"
+	parentNotFound    string = "parent key not found"
 	userstoreNotFound string = "userstore not found"
 )
 
@@ -76,17 +77,51 @@ func getEntries(tx *bolt.Tx, c *bolt.Cursor) []StoreEntry {
 */
 
 // Dump the whole store
-func (b boltRepo) Dump(addr hash.Hash) (*[]StoreEntry, error) {
-	return dump(b, false, addr)
+func (b boltRepo) Dump(addr hash.Hash, key string) (*[]StoreEntry, error) {
+	return dump(b, false, addr, key)
 }
 
 // Dump the whole store
-func (b boltRepo) DumpIndex(addr hash.Hash) (*[]StoreEntry, error) {
-	return dump(b, true, addr)
+func (b boltRepo) DumpIndex(addr hash.Hash, key string) (*[]StoreEntry, error) {
+	return dump(b, true, addr, key)
 }
 
-func dump(b boltRepo, onlyIndex bool, addr hash.Hash) (*[]StoreEntry, error) {
+func dump(b boltRepo, onlyIndex bool, addr hash.Hash, key string) (*[]StoreEntry, error) {
 	var entries []StoreEntry
+	var err error
+
+	if key == "" { // Get all entries, faster iteration
+		err = b.client.View(func(tx *bolt.Tx) error {
+			userBucket := tx.Bucket(addr.Byte())
+			if userBucket == nil {
+				logrus.Trace("userstore not found for address: ", addr.String())
+				return errors.New(userstoreNotFound)
+			}
+
+			c := userBucket.Cursor()
+			for k, v := c.First(); k != nil; k, v = c.Next() {
+				entry := StoreEntry{}
+				json.Unmarshal(v, &entry)
+				if onlyIndex {
+					if !entry.IsCollection {
+						continue
+					}
+				}
+				entries = append(entries, entry)
+			}
+
+			return nil
+		})
+	} else {
+		entries, err = getEntriesAndDescendants(b, onlyIndex, addr, key)
+	}
+
+	return &entries, err
+}
+
+func getEntriesAndDescendants(b boltRepo, onlyIndex bool, addr hash.Hash, key string) ([]StoreEntry, error) {
+	var entries []StoreEntry
+	var entry StoreEntry
 
 	err := b.client.View(func(tx *bolt.Tx) error {
 		userBucket := tx.Bucket(addr.Byte())
@@ -95,22 +130,37 @@ func dump(b boltRepo, onlyIndex bool, addr hash.Hash) (*[]StoreEntry, error) {
 			return errors.New(userstoreNotFound)
 		}
 
-		c := userBucket.Cursor()
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			entry := StoreEntry{}
-			json.Unmarshal(v, &entry)
-			if onlyIndex {
-				if !entry.IsCollection {
-					continue
-				}
-			}
-			entries = append(entries, entry)
+		v := userBucket.Get([]byte(key))
+		if v == nil {
+			return errors.New(keyNotFound)
 		}
 
-		return nil
+		return json.Unmarshal(v, &entry)
 	})
 
-	return &entries, err
+	if err != nil {
+		return nil, err
+	}
+
+	if onlyIndex {
+		if entry.IsCollection {
+			entries = append(entries, entry)
+		}
+	} else {
+		entries = append(entries, entry)
+	}
+
+	if len(entry.Entries) > 0 {
+		for _, e := range entry.Entries {
+			moreEntries, err := getEntriesAndDescendants(b, onlyIndex, addr, e)
+			if err != nil {
+				return nil, err
+			}
+			entries = append(entries, moreEntries...)
+		}
+	}
+
+	return entries, nil
 }
 
 // Fetch the given key
@@ -123,15 +173,6 @@ func (b boltRepo) Fetch(addr hash.Hash, key string) (*StoreEntry, error) {
 			logrus.Trace("userstore not found for address: ", addr.String())
 			return errors.New(userstoreNotFound)
 		}
-		/*
-			mainBucket := userBucket.Bucket([]byte(key))
-			if mainBucket == nil {
-				logrus.Trace("key not found: ", key)
-				return errors.New(keyNotFound)
-			}
-
-			v := mainBucket.Get([]byte(key))
-		*/
 		v := userBucket.Get([]byte(key))
 		if v == nil {
 			return errors.New(keyNotFound)
@@ -142,6 +183,110 @@ func (b boltRepo) Fetch(addr hash.Hash, key string) (*StoreEntry, error) {
 	})
 
 	return entry, err
+}
+
+func updateParentsTimestamp(b boltRepo, addr hash.Hash, entry StoreEntry) error {
+	// Get parent to update timestamp
+	parentEntry := &StoreEntry{}
+	err := b.client.View(func(tx *bolt.Tx) error {
+		userBucket := tx.Bucket(addr.Byte())
+		if userBucket == nil {
+			logrus.Trace("userstore not found for address: ", addr.String())
+			return errors.New(userstoreNotFound)
+		}
+
+		v := userBucket.Get([]byte(entry.Parent))
+		if v == nil {
+			return errors.New(parentNotFound)
+		}
+
+		err := json.Unmarshal(v, &parentEntry)
+		return err
+	})
+
+	if err != nil {
+		return err
+	}
+
+	parentEntry.TimeStamp = entry.TimeStamp
+
+	parentData, err := json.Marshal(parentEntry)
+	if err != nil {
+		return err
+	}
+
+	err = b.client.Update(func(tx *bolt.Tx) error {
+		userBucket, err := tx.CreateBucketIfNotExists(addr.Byte())
+		if err != nil {
+			logrus.Trace("unable to create bucket on BOLT: ", addr.String(), err)
+			return err
+		}
+
+		return userBucket.Put([]byte(entry.Parent), parentData)
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if parentEntry.Parent != "" {
+		return updateParentsTimestamp(b, addr, *parentEntry)
+	}
+
+	return nil
+}
+
+func updateParentsChildren(b boltRepo, addr hash.Hash, entry StoreEntry) error {
+	// Get parent to update children
+	parentEntry := &StoreEntry{}
+	err := b.client.View(func(tx *bolt.Tx) error {
+		userBucket := tx.Bucket(addr.Byte())
+		if userBucket == nil {
+			logrus.Trace("userstore not found for address: ", addr.String())
+			return errors.New(userstoreNotFound)
+		}
+
+		v := userBucket.Get([]byte(entry.Parent))
+		if v == nil {
+			return errors.New(parentNotFound)
+		}
+
+		err := json.Unmarshal(v, &parentEntry)
+		return err
+	})
+
+	if err != nil {
+		return err
+	}
+
+	childInParent := false
+	for _, child := range parentEntry.Entries {
+		if child == entry.ID {
+			childInParent = true
+			break
+		}
+	}
+
+	if !childInParent {
+		parentEntry.Entries = append(parentEntry.Entries, entry.ID)
+	}
+
+	parentData, err := json.Marshal(parentEntry)
+	if err != nil {
+		return err
+	}
+
+	err = b.client.Update(func(tx *bolt.Tx) error {
+		userBucket, err := tx.CreateBucketIfNotExists(addr.Byte())
+		if err != nil {
+			logrus.Trace("unable to create bucket on BOLT: ", addr.String(), err)
+			return err
+		}
+
+		return userBucket.Put([]byte(entry.Parent), parentData)
+	})
+
+	return err
 }
 
 // Store the given key in the repository
@@ -160,6 +305,18 @@ func (b boltRepo) Store(addr hash.Hash, entry StoreEntry) error {
 
 		return userBucket.Put([]byte(entry.ID), data)
 	})
+
+	if err != nil {
+		return err
+	}
+
+	err = updateParentsTimestamp(b, addr, entry)
+
+	if err != nil {
+		return err
+	}
+
+	err = updateParentsChildren(b, addr, entry)
 
 	return err
 }
