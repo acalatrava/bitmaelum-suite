@@ -93,7 +93,7 @@ func (api *API) GetKeyFromStore(addr hash.Hash, k string, dump bool, since strin
 
 	//@TODO: do this better
 	if since != "" {
-		url = url + "since=" + since + "000000" //unix to unixnano
+		url = url + "since=" + since + "000000000" //unix to unixnano
 	}
 
 	resp, statusCode, err := api.Get(url)
