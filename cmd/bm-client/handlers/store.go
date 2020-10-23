@@ -59,13 +59,13 @@ func StorePut(info *internal.AccountInfo, routingInfo *resolver.RoutingInfo, k *
 }
 
 // StoreGet gets data from the store
-func StoreGet(info *internal.AccountInfo, routingInfo *resolver.RoutingInfo, k *string, dump *bool) {
+func StoreGet(info *internal.AccountInfo, routingInfo *resolver.RoutingInfo, k *string, dump *bool, since *string) {
 	client := getClient(info, routingInfo)
 
 	addr, _ := address.NewAddress(info.Address)
 	addrHash := addr.Hash()
 
-	j, err := client.GetKeyFromStore(addrHash, *k, *dump)
+	j, err := client.GetKeyFromStore(addrHash, *k, *dump, *since)
 
 	if err != nil {
 		logrus.Fatal(err)

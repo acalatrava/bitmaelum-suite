@@ -80,7 +80,7 @@ var storeCmd = &cobra.Command{
 		}
 
 		if *storeGet {
-			handlers.StoreGet(accountToUse, routingInfo, storeKey, storeDump)
+			handlers.StoreGet(accountToUse, routingInfo, storeKey, storeDump, storeSince)
 		}
 	},
 }
@@ -90,6 +90,7 @@ var (
 	storeData    *string
 	storeKey     *string
 	storeParent  *string
+	storeSince   *string
 	storePut     *bool
 	storeGet     *bool
 	storeDel     *bool
@@ -107,6 +108,7 @@ func init() {
 	storeGet = storeCmd.Flags().BoolP("get", "g", false, "Retrieve the key from the server or, if requested a collection, the underlaying structure")
 	storeDel = storeCmd.Flags().BoolP("remove", "r", false, "Remove the key from the server")
 	storeDump = storeCmd.Flags().BoolP("dump", "", false, "Dump the whole structure and return all the values")
+	storeSince = storeCmd.Flags().String("since", "", "Unix timestamp to retrieve only updated items")
 
 	//_ = storeCmd.MarkFlagRequired("key")
 }
