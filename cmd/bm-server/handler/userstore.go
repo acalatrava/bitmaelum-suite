@@ -198,7 +198,9 @@ func RemoveStore(w http.ResponseWriter, req *http.Request) {
 			if entry.IsCollection {
 				deleteCollection(repo, &h, &entry)
 			} else {
-				repo.Remove(h, entry.ID)
+				entry.Data = []byte("*deleted*")
+				repo.Store(h, entry)
+				//repo.Remove(h, entry.ID)
 			}
 		}
 
@@ -219,7 +221,9 @@ func RemoveStore(w http.ResponseWriter, req *http.Request) {
 		if entry.IsCollection {
 			deleteCollection(repo, &h, entry)
 		} else {
-			repo.Remove(h, key.String())
+			entry.Data = []byte("*deleted*")
+			repo.Store(h, *entry)
+			//repo.Remove(h, key.String())
 		}
 
 	}
@@ -246,14 +250,18 @@ func deleteCollection(repo userstore.Repository, addr *hash.Hash, entry *usersto
 			continue
 		}
 
-		if entry.IsCollection {
+		if newEntry.IsCollection {
 			deleteCollection(repo, addr, newEntry)
 		} else {
-			repo.Remove(*addr, k)
+			newEntry.Data = []byte("*deleted*")
+			repo.Store(*addr, *newEntry)
+			//repo.Remove(*addr, k)
 		}
 	}
 
-	repo.Remove(*addr, entry.ID)
+	entry.Data = []byte("*deleted*")
+	repo.Store(*addr, *entry)
+	//repo.Remove(*addr, entry.ID)
 }
 
 type mNode struct {
