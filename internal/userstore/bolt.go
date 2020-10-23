@@ -185,6 +185,48 @@ func (b boltRepo) Fetch(addr hash.Hash, key string) (*StoreEntry, error) {
 	return entry, err
 }
 
+func createRootIfNeeded(b boltRepo, addr hash.Hash) error {
+	rootEntry := &StoreEntry{}
+
+	err := b.client.View(func(tx *bolt.Tx) error {
+		userBucket := tx.Bucket(addr.Byte())
+		if userBucket == nil {
+			logrus.Trace("userstore not found for address: ", addr.String())
+			return errors.New(userstoreNotFound)
+		}
+
+		v := userBucket.Get([]byte("root"))
+		if v == nil {
+			return errors.New(parentNotFound)
+		}
+
+		err := json.Unmarshal(v, &rootEntry)
+		return err
+	})
+
+	if err != nil {
+		rootEntry := NewEntry("root", nil, "", true)
+		data, err := json.Marshal(rootEntry)
+		if err != nil {
+			return err
+		}
+
+		err = b.client.Update(func(tx *bolt.Tx) error {
+			userBucket, err := tx.CreateBucketIfNotExists(addr.Byte())
+			if err != nil {
+				logrus.Trace("unable to create bucket on BOLT: ", addr.String(), err)
+				return err
+			}
+
+			return userBucket.Put([]byte(rootEntry.ID), data)
+		})
+
+		return err
+	}
+
+	return err
+}
+
 func updateParentsTimestamp(b boltRepo, addr hash.Hash, entry StoreEntry) error {
 	// Get parent to update timestamp
 	parentEntry := &StoreEntry{}
@@ -195,7 +237,16 @@ func updateParentsTimestamp(b boltRepo, addr hash.Hash, entry StoreEntry) error 
 			return errors.New(userstoreNotFound)
 		}
 
-		v := userBucket.Get([]byte(entry.Parent))
+		parent := entry.Parent
+		if parent == "" {
+			parent = "root"
+			err := createRootIfNeeded(b, addr)
+			if err != nil {
+				return err
+			}
+		}
+
+		v := userBucket.Get([]byte(parent))
 		if v == nil {
 			return errors.New(parentNotFound)
 		}
@@ -246,7 +297,16 @@ func updateParentsChildren(b boltRepo, addr hash.Hash, entry StoreEntry) error {
 			return errors.New(userstoreNotFound)
 		}
 
-		v := userBucket.Get([]byte(entry.Parent))
+		parent := entry.Parent
+		if parent == "" {
+			parent = "root"
+			err := createRootIfNeeded(b, addr)
+			if err != nil {
+				return err
+			}
+		}
+
+		v := userBucket.Get([]byte(parent))
 		if v == nil {
 			return errors.New(parentNotFound)
 		}

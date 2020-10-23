@@ -260,6 +260,7 @@ func deleteCollection(repo userstore.Repository, addr *hash.Hash, entry *usersto
 	}
 
 	entry.Data = []byte("*deleted*")
+	entry.IsCollection = false
 	repo.Store(*addr, *entry)
 	//repo.Remove(*addr, entry.ID)
 }
@@ -300,6 +301,14 @@ func dumpStore(onlyIndex bool, addr hash.Hash, key string) (interface{}, error) 
 				m[entry.ID] = make(map[string]interface{})
 			} else {
 				m[entry.ID] = entry.Data
+			}
+		} else {
+			// This check is because key may have been changed from collection to deleted
+			switch m[entry.ID].(type) {
+			case []byte:
+				if !entry.IsCollection {
+					m[entry.ID] = entry.Data
+				}
 			}
 		}
 
