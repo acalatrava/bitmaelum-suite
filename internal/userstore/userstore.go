@@ -38,8 +38,8 @@ type StoreEntry struct {
 
 // Repository is a repository to fetch and store StoreEntry entries
 type Repository interface {
-	DumpIndex(addr hash.Hash, key string) (*[]StoreEntry, error)
-	Dump(addr hash.Hash, key string) (*[]StoreEntry, error)
+	DumpIndex(addr hash.Hash, key string, since int64) (*[]StoreEntry, error)
+	Dump(addr hash.Hash, key string, since int64) (*[]StoreEntry, error)
 	Fetch(addr hash.Hash, key string) (*StoreEntry, error)
 	Store(addr hash.Hash, entry StoreEntry) error
 	Remove(addr hash.Hash, key string) error

@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -54,15 +55,26 @@ func RetrieveStore(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	var sinceTimestamp int64
 	onlyIndex := true
+
 	dump := req.URL.Query().Get("dump")
 	if strings.ToLower(dump) == "true" {
 		onlyIndex = false
 	}
 
+	since := req.URL.Query().Get("since")
+	if since != "" {
+		sinceTimestamp, err = strconv.ParseInt(since, 10, 64)
+		if err != nil {
+			ErrorOut(w, http.StatusNotFound, "since param error")
+			return
+		}
+	}
+
 	logrus.Trace("RetrieveStore called for addr ", h, " and key ", k)
 
-	entries, err := dumpStore(onlyIndex, h, k)
+	entries, err := dumpStore(onlyIndex, h, k, sinceTimestamp)
 	if err != nil {
 		msg := fmt.Sprintf("error while retrieving store: %s", err)
 		ErrorOut(w, http.StatusInternalServerError, msg)
@@ -276,12 +288,14 @@ func deleteCollection(repo userstore.Repository, addr *hash.Hash, entry *usersto
 	//repo.Remove(*addr, entry.ID)
 }
 
+/*
 type mNode struct {
 	Value    []byte            `json:"data,omitempty"`
 	Children map[string]*mNode `json:"children,omitempty"`
 }
+*/
 
-func dumpStore(onlyIndex bool, addr hash.Hash, key string) (interface{}, error) {
+func dumpStore(onlyIndex bool, addr hash.Hash, key string, sinceTimestamp int64) (interface{}, error) {
 	repo := container.GetUserStoreRepo()
 
 	var (
@@ -290,9 +304,9 @@ func dumpStore(onlyIndex bool, addr hash.Hash, key string) (interface{}, error) 
 	)
 
 	if onlyIndex {
-		entries, err = repo.DumpIndex(addr, key)
+		entries, err = repo.DumpIndex(addr, key, sinceTimestamp)
 	} else {
-		entries, err = repo.Dump(addr, key)
+		entries, err = repo.Dump(addr, key, sinceTimestamp)
 	}
 
 	if err != nil {

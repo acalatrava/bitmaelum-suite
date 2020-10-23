@@ -78,16 +78,16 @@ func getEntries(tx *bolt.Tx, c *bolt.Cursor) []StoreEntry {
 */
 
 // Dump the whole store
-func (b boltRepo) Dump(addr hash.Hash, key string) (*[]StoreEntry, error) {
-	return dump(b, false, addr, key)
+func (b boltRepo) Dump(addr hash.Hash, key string, since int64) (*[]StoreEntry, error) {
+	return dump(b, false, addr, key, since)
 }
 
 // Dump the whole store
-func (b boltRepo) DumpIndex(addr hash.Hash, key string) (*[]StoreEntry, error) {
-	return dump(b, true, addr, key)
+func (b boltRepo) DumpIndex(addr hash.Hash, key string, since int64) (*[]StoreEntry, error) {
+	return dump(b, true, addr, key, since)
 }
 
-func dump(b boltRepo, onlyIndex bool, addr hash.Hash, key string) (*[]StoreEntry, error) {
+func dump(b boltRepo, onlyIndex bool, addr hash.Hash, key string, since int64) (*[]StoreEntry, error) {
 	var entries []StoreEntry
 	var err error
 
@@ -104,11 +104,19 @@ func dump(b boltRepo, onlyIndex bool, addr hash.Hash, key string) (*[]StoreEntry
 				entry := StoreEntry{}
 				json.Unmarshal(v, &entry)
 				logrus.Trace("id: ", entry.ID)
+
+				// Do not return "root" dummy key
 				if entry.ID == rootDummyKey {
 					continue
 				}
+
+				// If requested since ignore older entries
+				if since > entry.TimeStamp {
+					continue
+				}
+
 				if onlyIndex {
-					if !entry.IsCollection || entry.Data == nil {
+					if entry.Data != nil && !entry.IsCollection {
 						continue
 					}
 				}
@@ -118,14 +126,14 @@ func dump(b boltRepo, onlyIndex bool, addr hash.Hash, key string) (*[]StoreEntry
 			return nil
 		})
 	} else {
-		entries, err = getEntriesAndDescendants(b, onlyIndex, addr, key)
+		entries, err = getEntriesAndDescendants(b, onlyIndex, addr, key, since)
 	}
 
 	logrus.Trace("entries: ", entries)
 	return &entries, err
 }
 
-func getEntriesAndDescendants(b boltRepo, onlyIndex bool, addr hash.Hash, key string) ([]StoreEntry, error) {
+func getEntriesAndDescendants(b boltRepo, onlyIndex bool, addr hash.Hash, key string, since int64) ([]StoreEntry, error) {
 	var entries []StoreEntry
 	var entry StoreEntry
 
@@ -148,17 +156,20 @@ func getEntriesAndDescendants(b boltRepo, onlyIndex bool, addr hash.Hash, key st
 		return nil, err
 	}
 
-	if onlyIndex {
-		if entry.IsCollection {
+	// If requested since ignore older entries
+	if since < entry.TimeStamp {
+		if onlyIndex {
+			if entry.IsCollection || entry.Data == nil {
+				entries = append(entries, entry)
+			}
+		} else {
 			entries = append(entries, entry)
 		}
-	} else {
-		entries = append(entries, entry)
 	}
 
 	if len(entry.Entries) > 0 {
 		for _, e := range entry.Entries {
-			moreEntries, err := getEntriesAndDescendants(b, onlyIndex, addr, e)
+			moreEntries, err := getEntriesAndDescendants(b, onlyIndex, addr, e, since)
 			if err != nil {
 				return nil, err
 			}
