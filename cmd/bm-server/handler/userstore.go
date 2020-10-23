@@ -197,11 +197,17 @@ func RemoveStore(w http.ResponseWriter, req *http.Request) {
 		for _, entry := range *entries {
 			if entry.IsCollection {
 				deleteCollection(repo, &h, &entry)
-			} else {
+			} /*else {
 				entry.Data = []byte("*deleted*")
 				repo.Store(h, entry)
 				//repo.Remove(h, entry.ID)
-			}
+			}*/
+
+			entry.IsCollection = false
+			entry.Data = nil //[]byte("*deleted*")
+			repo.Store(h, entry)
+			//repo.Remove(h, entry.ID)
+
 		}
 
 	} else {
@@ -220,11 +226,16 @@ func RemoveStore(w http.ResponseWriter, req *http.Request) {
 
 		if entry.IsCollection {
 			deleteCollection(repo, &h, entry)
-		} else {
+		} /*else {
 			entry.Data = []byte("*deleted*")
 			repo.Store(h, *entry)
 			//repo.Remove(h, key.String())
-		}
+		}*/
+
+		entry.IsCollection = false
+		entry.Data = nil //[]byte("*deleted*")
+		repo.Store(h, *entry)
+		//repo.Remove(h, entry.ID)
 
 	}
 
@@ -253,13 +264,13 @@ func deleteCollection(repo userstore.Repository, addr *hash.Hash, entry *usersto
 		if newEntry.IsCollection {
 			deleteCollection(repo, addr, newEntry)
 		} else {
-			newEntry.Data = []byte("*deleted*")
+			newEntry.Data = nil //[]byte("*deleted*")
 			repo.Store(*addr, *newEntry)
 			//repo.Remove(*addr, k)
 		}
 	}
 
-	entry.Data = []byte("*deleted*")
+	entry.Data = nil //[]byte("*deleted*")
 	entry.IsCollection = false
 	repo.Store(*addr, *entry)
 	//repo.Remove(*addr, entry.ID)
@@ -305,14 +316,18 @@ func dumpStore(onlyIndex bool, addr hash.Hash, key string) (interface{}, error) 
 		} else {
 			// This check is because key may have been changed from collection to deleted
 			switch m[entry.ID].(type) {
-			case []byte:
+			case map[string]interface{}:
 				if !entry.IsCollection {
 					m[entry.ID] = entry.Data
 				}
 			}
 		}
 
-		m[entry.Parent].(map[string]interface{})[entry.ID] = m[entry.ID]
+		// We need to check if this key interface is still an interface because if it's been removed it has changed to []byte with nil content
+		switch m[entry.Parent].(type) {
+		case map[string]interface{}:
+			m[entry.Parent].(map[string]interface{})[entry.ID] = m[entry.ID]
+		}
 	}
 
 	/*

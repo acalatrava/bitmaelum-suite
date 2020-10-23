@@ -37,6 +37,7 @@ const (
 	keyNotFound       string = "key not found"
 	parentNotFound    string = "parent key not found"
 	userstoreNotFound string = "userstore not found"
+	rootDummyKey      string = "root"
 )
 
 // BoltDBFile is the filename to store the boltdb database
@@ -102,8 +103,12 @@ func dump(b boltRepo, onlyIndex bool, addr hash.Hash, key string) (*[]StoreEntry
 			for k, v := c.First(); k != nil; k, v = c.Next() {
 				entry := StoreEntry{}
 				json.Unmarshal(v, &entry)
+				logrus.Trace("id: ", entry.ID)
+				if entry.ID == rootDummyKey {
+					continue
+				}
 				if onlyIndex {
-					if !entry.IsCollection {
+					if !entry.IsCollection || entry.Data == nil {
 						continue
 					}
 				}
@@ -116,6 +121,7 @@ func dump(b boltRepo, onlyIndex bool, addr hash.Hash, key string) (*[]StoreEntry
 		entries, err = getEntriesAndDescendants(b, onlyIndex, addr, key)
 	}
 
+	logrus.Trace("entries: ", entries)
 	return &entries, err
 }
 
@@ -188,6 +194,8 @@ func (b boltRepo) Fetch(addr hash.Hash, key string) (*StoreEntry, error) {
 func createRootIfNeeded(b boltRepo, addr hash.Hash) error {
 	rootEntry := &StoreEntry{}
 
+	logrus.Trace("createRootIfNeeded")
+
 	err := b.client.View(func(tx *bolt.Tx) error {
 		userBucket := tx.Bucket(addr.Byte())
 		if userBucket == nil {
@@ -195,7 +203,7 @@ func createRootIfNeeded(b boltRepo, addr hash.Hash) error {
 			return errors.New(userstoreNotFound)
 		}
 
-		v := userBucket.Get([]byte("root"))
+		v := userBucket.Get([]byte(rootDummyKey))
 		if v == nil {
 			return errors.New(parentNotFound)
 		}
@@ -205,7 +213,8 @@ func createRootIfNeeded(b boltRepo, addr hash.Hash) error {
 	})
 
 	if err != nil {
-		rootEntry := NewEntry("root", nil, "", true)
+		logrus.Trace("root entry not found, creating it")
+		rootEntry := NewEntry(rootDummyKey, nil, "", true)
 		data, err := json.Marshal(rootEntry)
 		if err != nil {
 			return err
@@ -221,7 +230,14 @@ func createRootIfNeeded(b boltRepo, addr hash.Hash) error {
 			return userBucket.Put([]byte(rootEntry.ID), data)
 		})
 
+		if err != nil {
+			logrus.Trace("error creating root ", err)
+		}
 		return err
+	}
+
+	if err != nil {
+		logrus.Trace("error retrieving root ", err)
 	}
 
 	return err
@@ -239,12 +255,7 @@ func updateParentsTimestamp(b boltRepo, addr hash.Hash, entry StoreEntry) error 
 
 		parent := entry.Parent
 		if parent == "" {
-			parent = "root"
-			err := createRootIfNeeded(b, addr)
-			if err != nil {
-				logrus.Trace("unable to create root")
-				return err
-			}
+			parent = rootDummyKey
 		}
 
 		v := userBucket.Get([]byte(parent))
@@ -275,11 +286,11 @@ func updateParentsTimestamp(b boltRepo, addr hash.Hash, entry StoreEntry) error 
 			return err
 		}
 
-		return userBucket.Put([]byte(entry.Parent), parentData)
+		return userBucket.Put([]byte(parentEntry.ID), parentData)
 	})
 
 	if err != nil {
-		logrus.Trace("unable to update timestamp for ", parentEntry.ID)
+		logrus.Trace("unable to update timestamp for ", parentEntry.ID, " -> ", err)
 		return err
 	}
 
@@ -302,12 +313,7 @@ func updateParentsChildren(b boltRepo, addr hash.Hash, entry StoreEntry) error {
 
 		parent := entry.Parent
 		if parent == "" {
-			parent = "root"
-			err := createRootIfNeeded(b, addr)
-			if err != nil {
-				logrus.Trace("unable to create root")
-				return err
-			}
+			parent = rootDummyKey
 		}
 
 		v := userBucket.Get([]byte(parent))
@@ -349,7 +355,7 @@ func updateParentsChildren(b boltRepo, addr hash.Hash, entry StoreEntry) error {
 			return err
 		}
 
-		return userBucket.Put([]byte(entry.Parent), parentData)
+		return userBucket.Put([]byte(parentEntry.ID), parentData)
 	})
 
 	if err != nil {
@@ -362,6 +368,12 @@ func updateParentsChildren(b boltRepo, addr hash.Hash, entry StoreEntry) error {
 func (b boltRepo) Store(addr hash.Hash, entry StoreEntry) error {
 	data, err := json.Marshal(entry)
 	if err != nil {
+		return err
+	}
+
+	err = createRootIfNeeded(b, addr)
+	if err != nil {
+		logrus.Trace("unable to create root")
 		return err
 	}
 
