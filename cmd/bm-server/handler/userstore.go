@@ -200,7 +200,7 @@ func RemoveStore(w http.ResponseWriter, req *http.Request) {
 	repo := container.GetUserStoreRepo()
 	if k == "" {
 		// Delete the whole store
-		entries, err := repo.Dump(h, k)
+		entries, err := repo.Dump(h, k, 0)
 		if err != nil {
 			ErrorOut(w, http.StatusNotFound, accountNotFound)
 			return
