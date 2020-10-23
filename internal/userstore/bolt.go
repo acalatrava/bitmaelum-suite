@@ -242,12 +242,14 @@ func updateParentsTimestamp(b boltRepo, addr hash.Hash, entry StoreEntry) error 
 			parent = "root"
 			err := createRootIfNeeded(b, addr)
 			if err != nil {
+				logrus.Trace("unable to create root")
 				return err
 			}
 		}
 
 		v := userBucket.Get([]byte(parent))
 		if v == nil {
+			logrus.Trace("parent not found ", parent)
 			return errors.New(parentNotFound)
 		}
 
@@ -277,6 +279,7 @@ func updateParentsTimestamp(b boltRepo, addr hash.Hash, entry StoreEntry) error 
 	})
 
 	if err != nil {
+		logrus.Trace("unable to update timestamp for ", parentEntry.ID)
 		return err
 	}
 
@@ -302,12 +305,14 @@ func updateParentsChildren(b boltRepo, addr hash.Hash, entry StoreEntry) error {
 			parent = "root"
 			err := createRootIfNeeded(b, addr)
 			if err != nil {
+				logrus.Trace("unable to create root")
 				return err
 			}
 		}
 
 		v := userBucket.Get([]byte(parent))
 		if v == nil {
+			logrus.Trace("parent not found ", parent)
 			return errors.New(parentNotFound)
 		}
 
@@ -328,6 +333,7 @@ func updateParentsChildren(b boltRepo, addr hash.Hash, entry StoreEntry) error {
 	}
 
 	if !childInParent {
+		logrus.Trace("adding ", entry.ID, " to parent childs")
 		parentEntry.Entries = append(parentEntry.Entries, entry.ID)
 	}
 
@@ -346,6 +352,9 @@ func updateParentsChildren(b boltRepo, addr hash.Hash, entry StoreEntry) error {
 		return userBucket.Put([]byte(entry.Parent), parentData)
 	})
 
+	if err != nil {
+		logrus.Trace("unable to store updated parent")
+	}
 	return err
 }
 
@@ -367,6 +376,7 @@ func (b boltRepo) Store(addr hash.Hash, entry StoreEntry) error {
 	})
 
 	if err != nil {
+		logrus.Trace("unable to store entry ", entry.ID)
 		return err
 	}
 
