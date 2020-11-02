@@ -74,11 +74,21 @@ func RetrieveStore(w http.ResponseWriter, req *http.Request) {
 
 	logrus.Trace("RetrieveStore called for addr ", h, " and key ", k)
 
-	entries, err := dumpStore(onlyIndex, h, k, sinceTimestamp)
-	if err != nil {
-		msg := fmt.Sprintf("error while retrieving store: %s", err)
-		ErrorOut(w, http.StatusInternalServerError, msg)
-		return
+	repo := container.GetUserStoreRepo()
+	entry, err := repo.Fetch(h, k)
+	var entries interface{}
+
+	if entry.IsCollection || k == "" {
+		entries, err = dumpStore(onlyIndex, h, k, sinceTimestamp)
+		if err != nil {
+			msg := fmt.Sprintf("error while retrieving store: %s", err)
+			ErrorOut(w, http.StatusInternalServerError, msg)
+			return
+		}
+	} else {
+		n := make(map[string]interface{})
+		n[entry.ID] = entry.Data
+		entries = interface{}(n)
 	}
 
 	// Output entries
@@ -86,56 +96,6 @@ func RetrieveStore(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(entries)
 
-	/*
-		if k == "" {
-			logrus.Trace("Trying to dump keys")
-			entries, err := dumpStore(onlyIndex, h, k)
-			if err != nil {
-				msg := fmt.Sprintf("error while retrieving store: %s", err)
-				ErrorOut(w, http.StatusInternalServerError, msg)
-				return
-			}
-
-			// Output entries
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(entries)
-
-			return
-		}
-
-		repo := container.GetUserStoreRepo()
-		entry, err := repo.Fetch(h, k)
-		if err != nil {
-			msg := fmt.Sprintf("error while fetching key: %s", err)
-			ErrorOut(w, http.StatusInternalServerError, msg)
-			return
-		}
-
-		if entry.IsCollection {
-			logrus.Trace("Trying to dump keys for key ", k)
-			entries, err := dumpStore(onlyIndex, h, k)
-			if err != nil {
-				msg := fmt.Sprintf("error while retrieving store: %s", err)
-				ErrorOut(w, http.StatusInternalServerError, msg)
-				return
-			}
-
-			// Output entries
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(entries)
-
-			return
-		}
-
-		logrus.Trace("Entry retrieved ", entry.Data)
-
-		// Output entry
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(entry)
-	*/
 }
 
 // UpdateStore will update a key or collection
@@ -209,17 +169,11 @@ func RemoveStore(w http.ResponseWriter, req *http.Request) {
 		for _, entry := range *entries {
 			if entry.IsCollection {
 				deleteCollection(repo, &h, &entry)
-			} /*else {
-				entry.Data = []byte("*deleted*")
-				repo.Store(h, entry)
-				//repo.Remove(h, entry.ID)
-			}*/
+			}
 
 			entry.IsCollection = false
-			entry.Data = nil //[]byte("*deleted*")
+			entry.Data = nil
 			repo.Store(h, entry)
-			//repo.Remove(h, entry.ID)
-
 		}
 
 	} else {
@@ -238,14 +192,10 @@ func RemoveStore(w http.ResponseWriter, req *http.Request) {
 
 		if entry.IsCollection {
 			deleteCollection(repo, &h, entry)
-		} /*else {
-			entry.Data = []byte("*deleted*")
-			repo.Store(h, *entry)
-			//repo.Remove(h, key.String())
-		}*/
+		}
 
 		entry.IsCollection = false
-		entry.Data = nil //[]byte("*deleted*")
+		entry.Data = nil
 		repo.Store(h, *entry)
 		//repo.Remove(h, entry.ID)
 
@@ -276,24 +226,17 @@ func deleteCollection(repo userstore.Repository, addr *hash.Hash, entry *usersto
 		if newEntry.IsCollection {
 			deleteCollection(repo, addr, newEntry)
 		} else {
-			newEntry.Data = nil //[]byte("*deleted*")
+			newEntry.Data = nil
 			repo.Store(*addr, *newEntry)
 			//repo.Remove(*addr, k)
 		}
 	}
 
-	entry.Data = nil //[]byte("*deleted*")
+	entry.Data = nil
 	entry.IsCollection = false
 	repo.Store(*addr, *entry)
 	//repo.Remove(*addr, entry.ID)
 }
-
-/*
-type mNode struct {
-	Value    []byte            `json:"data,omitempty"`
-	Children map[string]*mNode `json:"children,omitempty"`
-}
-*/
 
 func dumpStore(onlyIndex bool, addr hash.Hash, key string, sinceTimestamp int64) (interface{}, error) {
 	repo := container.GetUserStoreRepo()
@@ -328,7 +271,7 @@ func dumpStore(onlyIndex bool, addr hash.Hash, key string, sinceTimestamp int64)
 				m[entry.ID] = entry.Data
 			}
 		} else {
-			// This check is because key may have been changed from collection to deleted
+			// This check is because the key may have been changed from collection to deleted
 			switch m[entry.ID].(type) {
 			case map[string]interface{}:
 				if !entry.IsCollection {
@@ -337,38 +280,15 @@ func dumpStore(onlyIndex bool, addr hash.Hash, key string, sinceTimestamp int64)
 			}
 		}
 
-		// We need to check if this key interface is still an interface because if it's been removed it has changed to []byte with nil content
+		// We need to check if this key is still an interface type because if it's been removed it has changed to nil
 		switch m[entry.Parent].(type) {
 		case map[string]interface{}:
 			m[entry.Parent].(map[string]interface{})[entry.ID] = m[entry.ID]
 		}
 	}
-
-	/*
-		for _, entry := range *entries {
-			if entry.IsCollection {
-				node := make(map[string]interface{})
-				m[entry.ID] = node
-			} else {
-				m[entry.ID] = entry.Data
-			}
-		}
-
-		for _, entry := range *entries {
-			logrus.Trace("checking entry  ", entry.ID, " parent ", entry.Parent)
-			if entry.Parent == "" {
-				logrus.Trace("entry -> root ", entry.ID)
-				m["root"].(map[string]interface{})[entry.ID] = m[entry.ID]
-			} else {
-				logrus.Trace("entry -> ", entry.Parent, " ", entry.ID)
-				m[entry.Parent].(map[string]interface{})[entry.ID] = m[entry.ID]
-			}
-		}
-	*/
-
 	if m[key] == nil {
-		// Nothing to be returned
-		return m, nil
+		// Return empty interface
+		return make(map[string]interface{}), nil
 	}
 
 	return m[key], nil
