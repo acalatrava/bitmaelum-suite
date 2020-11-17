@@ -182,6 +182,32 @@ func (api *API) PostReader(path string, r io.Reader) (body []byte, statusCode in
 	return body, statusCode, err
 }
 
+// PutJSON put JSON to API
+func (api *API) PutJSON(path string, data interface{}) (body []byte, statusCode int, err error) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return api.PutReader(path, bytes.NewBuffer(b))
+}
+
+// PutReader posts to API through a reader
+func (api *API) PutReader(path string, r io.Reader) (body []byte, statusCode int, err error) {
+	req, err := http.NewRequest("PUT", api.host+path, r)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	r, statusCode, err = api.do(req)
+	if err != nil {
+		return nil, statusCode, err
+	}
+
+	body, err = ioutil.ReadAll(r)
+	return body, statusCode, err
+}
+
 // Delete from API
 func (api *API) Delete(path string) (body []byte, statusCode int, err error) {
 	req, err := http.NewRequest("DELETE", api.host+path, nil)
