@@ -75,7 +75,7 @@ func RetrieveStore(w http.ResponseWriter, req *http.Request) {
 	logrus.Trace("RetrieveStore called for addr ", h, " and key ", k)
 
 	repo := container.GetUserStoreRepo()
-	entry, err := repo.Fetch(h, k)
+	entry, _ := repo.Fetch(h, k)
 	var entries interface{}
 
 	if entry.IsCollection || k == "" {

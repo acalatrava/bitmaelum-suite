@@ -43,6 +43,10 @@ func (api *API) PutDataInStore(addr hash.Hash, k string, v string, p string) err
 		isCollection = true
 	}
 
+	if p != "" {
+		p = hash.New(p).String()
+	}
+
 	input := &inputStoreData{
 		Data:         data,
 		Parent:       p,
