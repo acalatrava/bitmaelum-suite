@@ -29,7 +29,7 @@ import (
 )
 
 func getClient(info *vault.AccountInfo, routingInfo *resolver.RoutingInfo) *api.API {
-	client, err := api.NewAuthenticated(info.Address, &info.PrivKey, routingInfo.Routing)
+	client, err := api.NewAuthenticated(*info.Address, &info.PrivKey, routingInfo.Routing)
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func StoreGet(info *vault.AccountInfo, routingInfo *resolver.RoutingInfo, k *str
 		logrus.Fatal(err)
 	}
 
-	fmt.Print(j)
+	logrus.Trace(j)
 	fmt.Println("Done.")
 }
 
