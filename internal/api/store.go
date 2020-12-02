@@ -59,7 +59,7 @@ func (api *API) PutDataInStore(addr hash.Hash, k string, v string, p string) err
 	}
 
 	if statusCode < 200 || statusCode > 299 {
-		return getErrorFromResponse(resp)
+		return GetErrorFromResponse(resp)
 	}
 
 	return nil
@@ -74,7 +74,7 @@ func (api *API) DeleteKeyFromStore(addr hash.Hash, k string) error {
 	}
 
 	if statusCode < 200 || statusCode > 299 {
-		return getErrorFromResponse(resp)
+		return GetErrorFromResponse(resp)
 	}
 
 	return nil
@@ -111,7 +111,7 @@ func (api *API) GetKeyFromStore(addr hash.Hash, k string, dump bool, since strin
 	}
 
 	if statusCode < 200 || statusCode > 299 {
-		return nil, getErrorFromResponse(resp)
+		return nil, GetErrorFromResponse(resp)
 	}
 
 	return jsonParsed, nil

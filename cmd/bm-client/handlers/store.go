@@ -22,6 +22,7 @@ package handlers
 import (
 	"fmt"
 
+	"github.com/bitmaelum/bitmaelum-suite/cmd/bm-client/internal"
 	"github.com/bitmaelum/bitmaelum-suite/internal/api"
 	"github.com/bitmaelum/bitmaelum-suite/internal/resolver"
 	"github.com/bitmaelum/bitmaelum-suite/internal/vault"
@@ -29,7 +30,7 @@ import (
 )
 
 func getClient(info *vault.AccountInfo, routingInfo *resolver.RoutingInfo) *api.API {
-	client, err := api.NewAuthenticated(*info.Address, &info.PrivKey, routingInfo.Routing)
+	client, err := api.NewAuthenticated(*info.Address, &info.PrivKey, routingInfo.Routing, internal.JwtErrorFunc)
 	if err != nil {
 		logrus.Fatal(err)
 	}
